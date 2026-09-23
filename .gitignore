@@ -1,0 +1,41 @@
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+*.pyc
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Unrequired binaries and object files
+*.exe
+*.obj
+
+# Temporary files and snapshots
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*.snapshot
+*.snap
+snapshots/
+
+# Test, coverage, and build output
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Local IDE and operating-system files
+.idea/
+.vscode/
+.DS_Store
+
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example

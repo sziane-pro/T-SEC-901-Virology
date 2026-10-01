@@ -39,3 +39,5 @@ build/
 .env
 .env.*
 !.env.example
+# Local laboratory notes
+/Notes.txt

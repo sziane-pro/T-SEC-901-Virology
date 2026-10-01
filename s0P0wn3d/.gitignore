@@ -1,0 +1,41 @@
+# Build directories
+/build/
+/controller/build/
+/implant/build/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+
+# Visual Studio generated files
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# Compiled binaries and intermediate files
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.idb
+*.iobj
+*.ipdb
+*.tlog
+*.recipe
+
+# Runtime logs and local configuration
+*.log
+*.user
+*.suo
+
+# Operating system files
+.DS_Store
+Thumbs.db

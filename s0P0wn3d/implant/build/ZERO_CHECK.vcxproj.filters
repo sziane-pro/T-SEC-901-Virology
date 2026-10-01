@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Jaures Acs\Documents\delivery\T-SEC-901-Virology\s0P0wn3d\implant\build\CMakeFiles\b5d96b4c0f68ca7c424cc6da0cda37ba\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{5399F5B6-D0DF-3E5F-8BBB-6DB553B8677E}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

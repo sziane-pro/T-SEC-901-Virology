@@ -34,6 +34,10 @@ build/
 .idea/
 .vscode/
 .DS_Store
+*.cbp.layout
+*.depend
+*.layout
+.cache/
 
 # Local secrets and environment overrides
 .env
@@ -41,3 +45,30 @@ build/
 !.env.example
 # Local laboratory notes
 /Notes.txt
+
+# === Build ===
+cmake-build-*/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# === Certificats & clés privées (CRITIQUE) ===
+certs/key.pem
+certs/cert.pem
+*.key
+!certs/*.key.example
+
+# === Secrets TLS ===
+sslkeys.log
+*.keylog
+
+# === OS ===
+Thumbs.db
+
+# === Logs ===
+*.log

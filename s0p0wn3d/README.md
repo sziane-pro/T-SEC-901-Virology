@@ -146,7 +146,7 @@ Représente les informations conservées pour un client enregistré.
 |---|---|
 | `client_id` | Identifiant du client |
 | `registered_at` | Date et heure du premier enregistrement |
-| `ip_private` | Adresse IPv4 privée connue |
+| `ip_private` | Adresse IPv4 privée connue de l'agent |
 
 L'adresse IP privée constitue une métadonnée réseau. Elle peut évoluer lorsqu'une machine change de réseau ou reçoit une nouvelle adresse.
 
@@ -164,11 +164,38 @@ Les valeurs autorisées de `last_result` restent à définir. Une première conv
 
 Une tentative de connexion échouée ne doit pas être assimilée à une communication valide.
 
-### 5.3 Séparation des responsabilités
+### 5.3 `Command`
+
+Représente les informations d'une commande
+
+| Champ | Description |
+|---|---|
+| `command_id` | Identifiant unique de la demande |
+| `client_id` | Client concerné |
+| `action_type` | Type d'action demandée |
+| `status` | État de la demande |
+| `created_at` | Date de création |
+| `send_at` | Date d'envoi, si l'envoi a eu lieu |
+
+### 5.4 `CommandResult`
+
+Représente les informations du résultat d'une commande
+
+| Champ | Description |
+|---|---|
+| `command_id` | Identifiant unique de la demande |
+| `result` | Résultat de la commande |
+| `completed_at` | Date de fin |
+
+### 5.5 Séparation des responsabilités
 
 `ClientIdentity` décrit les informations relativement stables du client.
 
 `CommunicationStatus` décrit son état de communication, susceptible d'évoluer au cours du temps.
+
+`Command` décrit les informations d'une commande
+
+`CommandResult` décrit les informations retourné par la commande
 
 Cette séparation facilite les tests et évite de mélanger l'identité enregistrée avec l'état courant du service.
 
@@ -254,6 +281,6 @@ Les tests doivent couvrir les cas normaux, les données invalides et les erreurs
 
 L'architecture privilégie la séparation des responsabilités, la simplicité et la testabilité.
 
-Chaque module doit avoir un rôle clairement défini. Les interfaces entre les modules doivent être suffisamment simples pour pouvoir tester indépendamment le protocole, les modèles et le registre des clients.
+Chaque module doit avoir un rôle clairement défini. Les interfaces entre les modules doivent être suffisamment simples pour pouvoir tester indépendamment le protocole, les modèles et le registre client.
 
 Les décisions non encore validées sont conservées comme points ouverts plutôt que présentées comme des fonctionnalités déjà implémentées.

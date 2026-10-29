@@ -89,9 +89,14 @@ Le protocole applicatif ne doit pas dépendre directement du transport utilisé.
 
 ### `auth.py`
 
-Module dédié aux responsabilités d'authentification du service de laboratoire.
+Module dédié aux responsabilités d'authentification.
 
-La méthode d'authentification et son intégration restent à préciser. Les identifiants déclarés dans les messages ne doivent pas être confondus avec une preuve d'identité.
+Méthode d'authentification proposé pour le moment : "Pre-Shared Key" (Clé pré-partagée) + Agent ID
+
+C'est la méthode la plus simple dans le cadre d'un MVP. 
+L'agent génère une clé secrète (un long token aléatoire) . 
+À chaque requête, l'agent envoie cette clé dans un header HTTP (ex: X-Agent-Token). 
+Le serveur vérifie que la clé correspond.
 
 ### `commands.py`
 

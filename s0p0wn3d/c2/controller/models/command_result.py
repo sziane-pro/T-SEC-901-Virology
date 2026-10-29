@@ -5,4 +5,4 @@ import datetime
 class CommandResult:
     command_id: str
     result: str
-    completed_at: datetime
+    completed_at: datetime.datetime

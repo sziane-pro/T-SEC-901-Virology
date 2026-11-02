@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-import datetime
+from datetime import datetime
 
 @dataclass
 class CommunicationStatus:
-    last_result: str
-    last_seen: datetime.datetime
-    consecutive_errors: int
+    client_id: str
+    last_result: Optional[str] = None
+    last_seen: datetime
+    consecutive_errors: int = 0

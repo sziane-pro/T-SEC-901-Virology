@@ -11,8 +11,8 @@ Pour garantir le camouflage et la persistance de l'infrastructure, nous proposon
 ## 3. Conséquences
 
 ### Impacts positifs
-*   **Furtivité renforcée (OpSec) :** L'identité et la localisation du serveur principal demeurent totalement invisibles pour le client compromis et les éventuelles solutions de défense[cite: 9].
-*   **Haute disponibilité et résilience :** La présence de plusieurs serveurs tampons derrière une VIP permet d'assurer la survie des communications[cite: 9]. Si un relais tombe hors service (HS) ou est bloqué, la VIP redirige automatiquement et de façon transparente le trafic vers le serveur suivant.
+*   **Furtivité renforcée (OpSec) :** L'identité et la localisation du serveur principal demeurent totalement invisibles pour le client compromis et les éventuelles solutions de défense.
+*   **Haute disponibilité et résilience :** La présence de plusieurs serveurs tampons derrière une VIP permet d'assurer la survie des communications. Si un relais tombe hors service (HS) ou est bloqué, la VIP redirige automatiquement et de façon transparente le trafic vers le serveur suivant.
 
 ### Impacts négatifs
 *   **Complexité d'infrastructure :** Cette architecture tripartite nécessite de configurer, de déployer et de maintenir en condition opérationnelle des nœuds réseaux supplémentaires (répartiteur, relais multiples) au lieu d'un simple serveur autonome.

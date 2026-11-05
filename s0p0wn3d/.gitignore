@@ -1,0 +1,18 @@
+# Sorties de build de l'implant C++ (CMake + Visual Studio)
+
+implant/out/
+implant/build/
+implant/.vs/
+implant/CMakeUserPresets.json
+implant/compile_commands.json
+
+*.obj
+*.pdb
+*.ilk
+*.tlog
+*.recipe
+*.ipch
+*.idb
+*.iobj
+*.ipdb
+*.exp

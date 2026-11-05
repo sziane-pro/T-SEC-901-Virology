@@ -16,7 +16,7 @@ std::string cmd_uninstall() {
 	}
 
 	//Suppression de la tâche planifiée via schtasks
-	std::string task_name = kTaskName;
+	std::string task_name = TaskName;
 	std::string command = "C:\\Windows\\System32\\schtasks.exe /Delete /TN \"" + task_name + "\" /F";
 
 	STARTUPINFOA si;

@@ -28,6 +28,7 @@ def enqueue_command(cmd) -> None:
             SERVER_STATE.command_queue.append(cmd)
 
 def pop_command_for(client_id: str, client_manager):
+    """Retourne la commande en attente pour le client"""
     with SERVER_STATE.lock:
         queue = SERVER_STATE.pending_commands.get(client_id)
         if queue:

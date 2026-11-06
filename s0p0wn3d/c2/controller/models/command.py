@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import datetime
+from typing import Optional
 
 @dataclass
 class Command:
@@ -8,4 +9,4 @@ class Command:
     action_type: str    
     status: str
     created_at: datetime.datetime
-    send_at: datetime.datetime
+    send_at: Optional[datetime.datetime] = None

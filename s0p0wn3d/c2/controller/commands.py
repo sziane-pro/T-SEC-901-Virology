@@ -1,13 +1,29 @@
-# server/commands.py
 import uuid
 from datetime import datetime
 from controller.models.command import Command
 from controller.models.communication_status import CommunicationStatus
 from .state import SERVER_STATE
 
-KNOWN_ACTIONS = {"ping", "list_processes", "screenshot", "exec"}
+KNOWN_ACTIONS = {"ping", "list_processes", "screenshot", "exec", "whoami"}
+
+def cli_write_command(client_list, action_type):
+    """Add a command from the CLI to the queue for the specified clients."""
+    
+    if action_type not in KNOWN_ACTIONS:
+        raise ValueError(f"Action inconnue: {action_type}")
+    
+    if not client_list:
+        # broadcast to all clients
+        cmd = make_command(client_id='', action_type=action_type)
+        enqueue_command(cmd)
+    
+    for id in client_list :
+        cmd = make_command(id, action_type)
+        enqueue_command(cmd)
+        
 
 def make_command(client_id: str, action_type: str) -> Command:
+    """Crée une commande pour le client spécifié."""
     if action_type not in KNOWN_ACTIONS:
         raise ValueError(f"Action inconnue: {action_type}")
 
@@ -21,6 +37,7 @@ def make_command(client_id: str, action_type: str) -> Command:
     )
     
 def enqueue_command(cmd) -> None:
+    """Ajoute une commande à la file d'attente pour le client spécifié ou dans la file globale."""
     with SERVER_STATE.lock:
         if cmd.client_id:
             SERVER_STATE.pending_commands[cmd.client_id].append(cmd)

@@ -1,15 +1,23 @@
-# main.py
 import threading
-# from server.main import run_server
 from controller.cli import start_cli
 from controller.clients import ClientManager
 from http.server import ThreadingHTTPServer
 from controller.http_handler import make_handler
+import logging
 
+logging.basicConfig(
+    filename="c2_server.log",
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    encoding="utf-8",
+)
+
+# Faire la commande suivante dans PowerShell pour suivre le fichier de log en temps réel :
+# Get-Content .\c2_server.log -Wait -Tail 20
 
 def run_server(client_manager, host="0.0.0.0", port=8080):
     server = ThreadingHTTPServer((host, port), make_handler(client_manager))
-    print(f"Serveur sur http://{host}:{port}")
+    logging.info("Serveur sur http://%s:%s", host, port)
     server.serve_forever()
 
 if __name__ == "__main__":

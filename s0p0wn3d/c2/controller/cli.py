@@ -2,13 +2,14 @@ from controller.models.client_identity import ClientIdentity
 from controller.clients import ClientManager
 from controller.network import network_check
 from datetime import datetime
+from controller.commands import enqueue_command, make_command
 import questionary
 
 def start_cli(client_manager):
     while True:
         choices = questionary.select(
             "Select an option:",
-            choices=["Afficher les informations client", "Afficher les informations réseau", "Quitter"]
+            choices=["Afficher les informations client", "Afficher les informations réseau", "Lister les clients", "Envoyer une commande", "Quitter"]
         ).ask()
         if choices is None:
             raise SystemExit(1)
@@ -66,6 +67,20 @@ def start_cli(client_manager):
                     print(f"  {cid}  ip={info.ip_private}  enregistré={info.registered_at}")
             continue
         
+        elif choices == "Envoyer une commande":
+            cmd = questionary.select(
+            "Select an option:",
+            choices=["whoami", "Quitter"]
+            ).ask()
+            if cmd == "Quitter":
+                print("Exiting...")
+                break
+            if cmd == "whoami":
+                res_cmd = make_command('', 'whoami')
+                enqueue_command(res_cmd)
+                print("Command sent to queue")
+            continue
+                
         elif choices == "Quitter":
             print("Exiting the program.")
             break

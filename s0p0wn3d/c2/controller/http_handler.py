@@ -1,6 +1,7 @@
 # server/http_handler.py
 import json
 from http.server import BaseHTTPRequestHandler
+import logging
 from .messages import decode_message, MessageError
 from .sessions import init_session, identify_client
 from .commands import pop_command_for
@@ -41,7 +42,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._reply(401, {"error": str(e)})
 
         if msg.output:
-            print(f"\n[{client_id}] >>> {msg.output}")
+            logging.info("[%s] >>> %s", client_id, msg.output)
 
         cmd = pop_command_for(client_id, self.client_manager)
         payload = {"cmd": cmd.action_type if cmd else ""}
@@ -59,6 +60,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+    
+    def log_message(self, format, *args):
+        logging.info("%s - %s", self.address_string(), format % args)
+
         
 def make_handler(client_manager: ClientManager):
     """Crée une sous-classe de Handler liée à un ClientManager précis."""

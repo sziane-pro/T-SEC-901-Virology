@@ -16,6 +16,10 @@ def network_check(url, timeout):
 class Handler(BaseHTTPRequestHandler):
     """Couche transport"""
     dispatcher = None
+    
+    def log_message(self, format, *args):
+        """Override the default logging to use the logging module."""
+        logging.info("%s - %s", self.address_string(), format % args)
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))

@@ -1,9 +1,21 @@
-from controller.models.client_identity import ClientIdentity
-from controller.clients import ClientManager
 from controller.network import network_check
 from datetime import datetime
 from controller.commands import enqueue_command, make_command
 import questionary
+from .commands import make_command, enqueue_command
+from .command_catalog import KNOWN_ACTIONS
+from .clients import ClientManager
+
+client_manager = ClientManager()
+
+def enqueue_from_cli(client_ids, action_type):
+    if action_type not in KNOWN_ACTIONS:
+        raise ValueError(f"Action inconnue: {action_type}")
+    if not client_ids:
+        enqueue_command(make_command('', action_type), client_manager)
+        return
+    for cid in client_ids:
+        enqueue_command(make_command(cid, action_type), client_manager)
 
 def start_cli(client_manager):
     while True:
@@ -77,7 +89,7 @@ def start_cli(client_manager):
                 break
             if cmd == "whoami":
                 res_cmd = make_command('', 'whoami')
-                enqueue_command(res_cmd)
+                enqueue_command(res_cmd, client_manager)
                 print("Command sent to queue")
             continue
                 

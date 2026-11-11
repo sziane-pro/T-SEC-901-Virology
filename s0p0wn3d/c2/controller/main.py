@@ -2,8 +2,10 @@ import threading
 from controller.cli import start_cli
 from controller.clients import ClientManager
 from http.server import ThreadingHTTPServer
-from controller.http_handler import make_handler
 import logging
+from functools import partial
+from controller.network import make_handler
+from controller.protocol import handle_request
 
 logging.basicConfig(
     filename="c2_server.log",
@@ -16,7 +18,8 @@ logging.basicConfig(
 # Get-Content .\c2_server.log -Wait -Tail 20
 
 def run_server(client_manager, host="0.0.0.0", port=8080):
-    server = ThreadingHTTPServer((host, port), make_handler(client_manager))
+    dispatcher = partial(handle_request, client_manager=client_manager)
+    server = ThreadingHTTPServer((host, port), make_handler(dispatcher))
     logging.info("Serveur sur http://%s:%s", host, port)
     server.serve_forever()
 

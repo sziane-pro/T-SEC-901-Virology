@@ -1,32 +1,15 @@
 import uuid
 from datetime import datetime
 from controller.models.command import Command
-from controller.models.communication_status import CommunicationStatus
-from .state import SERVER_STATE
+from controller.clients import ClientManager
+from .command_catalog import KNOWN_ACTIONS
+from . import audit
 
-KNOWN_ACTIONS = {"ping", "list_processes", "screenshot", "exec", "whoami"}
-
-def cli_write_command(client_list, action_type):
-    """Add a command from the CLI to the queue for the specified clients."""
-    
-    if action_type not in KNOWN_ACTIONS:
-        raise ValueError(f"Action inconnue: {action_type}")
-    
-    if not client_list:
-        # broadcast to all clients
-        cmd = make_command(client_id='', action_type=action_type)
-        enqueue_command(cmd)
-    
-    for id in client_list :
-        cmd = make_command(id, action_type)
-        enqueue_command(cmd)
-        
 
 def make_command(client_id: str, action_type: str) -> Command:
-    """Crée une commande pour le client spécifié."""
+    """Crée une nouvelle commande pour le client spécifié ou pour tous les clients (broadcast)."""
     if action_type not in KNOWN_ACTIONS:
         raise ValueError(f"Action inconnue: {action_type}")
-
     return Command(
         command_id=str(uuid.uuid4()),
         client_id=client_id,
@@ -35,40 +18,34 @@ def make_command(client_id: str, action_type: str) -> Command:
         created_at=datetime.utcnow(),
         send_at=None,
     )
-    
-def enqueue_command(cmd) -> None:
-    """Ajoute une commande à la file d'attente pour le client spécifié ou dans la file globale."""
-    with SERVER_STATE.lock:
+
+def enqueue_command(cmd: Command, client_manager: ClientManager) -> None:
+    """Ajoute une commande à la file d'attente du client ou à la file globale (broadcast)."""
+    with client_manager._lock:
         if cmd.client_id:
-            SERVER_STATE.pending_commands[cmd.client_id].append(cmd)
+            client_manager.pending_commands[cmd.client_id].append(cmd)
         else:
-            SERVER_STATE.command_queue.append(cmd)
+            client_manager.command_queue.append(cmd)
+    audit.command_enqueued(cmd)
 
-def pop_command_for(client_id: str, client_manager):
-    """Retourne la commande en attente pour le client"""
-    with SERVER_STATE.lock:
-        queue = SERVER_STATE.pending_commands.get(client_id)
+
+def pop_command_for(client_id: str, client_manager: ClientManager) -> Command | None:
+    """Retourne la prochaine commande en attente pour le client, ou None.
+    Priorité : file du client, puis file globale (broadcast).
+    La commande retournée passe en statut "in_progress".
+    """
+    with client_manager._lock:
+        cmd = None
+        queue = client_manager.pending_commands.get(client_id)
         if queue:
-            return queue.popleft()
-        if SERVER_STATE.command_queue:
-            return SERVER_STATE.command_queue.popleft()
+            cmd = queue.popleft()
+        elif client_manager.command_queue:
+            cmd = client_manager.command_queue.popleft()
 
-    # mise à jour du statut de communication
-    status = client_manager.statuses.get(client_id)
-    if status:
-        status.last_seen = datetime.now()
-        status.consecutive_errors = 0
-    return None
+        if cmd is not None:
+            cmd.status = "in_progress"
+            cmd.send_at = datetime.utcnow()
 
-def update_comm_status(client_id: str, error: bool = False) -> None:
-    """Met à jour last_seen / consecutive_errors (utile pour la supervision)."""
-    with SERVER_STATE.lock:
-        status = SERVER_STATE.comm_status.setdefault(
-            client_id,
-            CommunicationStatus(
-                client_id=client_id,
-                last_seen=datetime.utcnow(),
-            ),
-        )
-        status.last_seen = datetime.utcnow()
-        status.consecutive_errors = status.consecutive_errors + 1 if error else 0
+    if cmd is not None:
+        audit.command_sent(cmd)
+    return cmd

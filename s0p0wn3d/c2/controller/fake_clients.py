@@ -1,9 +1,9 @@
-# fake_client.py
 """
 Simule un client qui :
-  1. s'initialise auprès du serveur (POST {"action":"init"})
-  2. poll régulièrement (POST {"sid": ..., "output": ...})
-  3. exécute la commande reçue (simulée) et renvoie un résultat au poll suivant
+  1. s'enregistre (POST {"action":"register", "client_id", "shared_key"})
+  2. beacon régulièrement (POST {"action":"beacon", "client_id"})
+     → le serveur renvoie une commande à exécuter (ou rien)
+  3. envoie le résultat de la commande exécutée (POST {"action":"command_result", ...})
 """
 import json
 import time
@@ -11,16 +11,20 @@ import urllib.request
 import urllib.error
 import threading
 
+RESET = "\033[0m"
+BLUE  = "\033[94m"
+GREEN = "\033[92m"
+
 
 class FakeClient:
-    def __init__(self, name: str, server_url: str, color: str):
-        self.name = name
-        self.server_url = server_url
-        self.color = color
-        self.client_id: str | None = None
+    def __init__(self, name: str, server_url: str, color: str,
+                 client_id: str, shared_key: str):
+        self.name        = name
+        self.server_url  = server_url
+        self.color       = color
+        self.client_id   = client_id
+        self.shared_key  = shared_key
         self.session_token: str | None = None
-        self.shared_key: str | None = None
-        self._pending_output: str | None = None
 
     # ---------- transport ----------
 
@@ -39,61 +43,97 @@ class FakeClient:
             body = e.read().decode(errors="replace")
             raise RuntimeError(f"HTTP {e.code} : {body}") from e
 
-    # ---------- étapes ----------
-
     def log(self, msg: str):
         print(f"{self.color}[{self.name}]{RESET} {msg}", flush=True)
 
-    def init(self):
-        self.log("→ POST init")
-        resp = self._post({"action": "init"})
-        self.client_id = resp["client_id"]
-        self.session_token = resp["session_token"]
-        self.shared_key = resp["shared_key"]
-        self.log(f"← client_id={self.client_id}")
-        self.log(f"← session_token={self.session_token[:12]}…")
-        self.log(f"← shared_key={self.shared_key[:12]}…")
+    # ---------- étapes ----------
+    
+    def provision(self):
+        resp = self._post({"action": "admin_provision"})
+        self.client_id  = resp.get("client_id")
+        self.shared_key = resp.get("shared_key")
 
-    def poll_once(self, output: str | None = None):
-        payload = {"sid": self.session_token}
-        if output is not None:
-            payload["output"] = output
-        resp = self._post(payload)
-        cmd = resp.get("cmd", "")
-        if cmd:
-            self.log(f"← commande reçue : {cmd!r} (id={resp.get('command_id')})")
-            # simule l'exécution
-            self._pending_output = f"{self.name} a exécuté {cmd!r} avec succès"
-        else:
+    def register(self):
+        """Premier POST : s'enregistre et récupère un session_token."""
+        self.log("→ POST register")
+        resp = self._post({
+            "action":     "register",
+            "client_id":  self.client_id,
+            "shared_key": self.shared_key,
+        })
+        self.session_token = resp["session_token"]
+        self.log(f"← session_token={self.session_token[:12]}…")
+
+    def beacon(self) -> dict | None:
+        """Poste un beacon, reçoit une commande éventuelle."""
+        resp = self._post({
+            "action":    "beacon",
+            "client_id": self.client_id,
+        })
+        cmd_id  = resp.get("command_id")
+        cmd_str = resp.get("command")
+
+        if not cmd_str:
             self.log("← pas de commande")
-        return cmd
+            return None
+
+        self.log(f"← commande reçue : {cmd_str!r} (id={cmd_id})")
+        return {"command_id": cmd_id, "command": cmd_str}
+
+    def send_result(self, command_id: str, command_response: str, status: str = "ok"):
+        """Renvoie le résultat de la commande exécutée."""
+        self.log(f"→ POST command_result (id={command_id})")
+        self._post({
+            "action":           "command_result",
+            "command_id":       command_id,
+            "command_response": command_response,
+            "status":           status,
+        })
+
+    def execute(self, cmd: dict):
+        """Simule l'exécution de la commande."""
+        # Ici, la vraie logique d'exécution.
+        return f"{self.name} a exécuté {cmd['command']!r} avec succès"
+
+    # ---------- boucle ----------
 
     def run(self, interval: float = 3.0, max_iters: int = 10):
         try:
-            self.init()
-            for i in range(max_iters):
-                output = self._pending_output
-                self._pending_output = None
-                self.poll_once(output=output)
+            self.provision()
+            self.register()
+            for _ in range(max_iters):
+                cmd = self.beacon()
+                if cmd is not None:
+                    result = self.execute(cmd)
+                    self.send_result(cmd["command_id"], result, status="ok")
                 time.sleep(interval)
         except Exception as e:
             self.log(f"!! erreur : {e}")
 
 
-# couleurs ANSI
-RESET = "\033[0m"
-BLUE = "\033[94m"
-GREEN = "\033[92m"
+# ---------- provisioning out-of-band (à brancher) ----------
+
+def provision(url: str, name: str) -> tuple[str, str]:
+    """
+    Distribue un couple (client_id, shared_key) au client 'name'.
+    À remplacer par votre mécanisme réel (fichier, base, API admin…).
+    Le serveur DOIT avoir ces credentials dans sa whitelist avant le register.
+    """
+    raise NotImplementedError("Brancher ici votre provisioning out-of-band")
 
 
 if __name__ == "__main__":
     SERVER = "http://127.0.0.1:8080"
 
-    alice = FakeClient("Alice", SERVER, BLUE)
-    bob = FakeClient("Bob", SERVER, GREEN)
+    # Credentials pré-distribués hors-bande (côté serveur : whitelist).
+    alice_id, alice_key = "alice-preprovisioned-id", "alice-preprovisioned-key"
+    bob_id,   bob_key   = "bob-preprovisioned-id",   "bob-preprovisioned-key"
+
+    alice = FakeClient("Alice", SERVER, BLUE,  alice_id, alice_key)
+    bob   = FakeClient("Bob",   SERVER, GREEN, bob_id,   bob_key)
 
     t1 = threading.Thread(target=alice.run, kwargs={"interval": 3.0}, daemon=True)
-    t2 = threading.Thread(target=bob.run, kwargs={"interval": 4.5}, daemon=True)
+    t2 = threading.Thread(target=bob.run,   kwargs={"interval": 4.5}, daemon=True)
 
     print("Démarrage des 2 faux clients (Ctrl+C pour arrêter)\n")
     t1.start()

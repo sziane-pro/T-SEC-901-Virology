@@ -1,24 +1,52 @@
-from controller.models.client_identity import ClientIdentity
-from controller.clients import get_client_info
 from controller.network import network_check
 from datetime import datetime
+from controller.commands import enqueue_command, make_command
 import questionary
+from .commands import make_command, enqueue_command
+from .command_catalog import KNOWN_ACTIONS
+from .clients import ClientManager
 
-def start_cli():
+client_manager = ClientManager()
+
+def enqueue_from_cli(client_ids, action_type):
+    if action_type not in KNOWN_ACTIONS:
+        raise ValueError(f"Action inconnue: {action_type}")
+    if not client_ids:
+        enqueue_command(make_command('', action_type), client_manager)
+        return
+    for cid in client_ids:
+        enqueue_command(make_command(cid, action_type), client_manager)
+
+def start_cli(client_manager):
     while True:
         choices = questionary.select(
             "Select an option:",
-            choices=["Afficher les informations client", "Afficher les informations réseau", "Quitter"]
+            choices=["Afficher les informations client", "Afficher les informations réseau", "Lister les clients", "Envoyer une commande", "Quitter"]
         ).ask()
         if choices is None:
             raise SystemExit(1)
             break
         elif choices == "Afficher les informations client":
-            client = get_client_info()
-            print(f"Client ID: {client.client_id}")
-            print(f"Registered At: {client.registered_at}")
-            print(f"Private IP: {client.ip_private}")
+            cid = questionary.text(
+            "client_id :",
+            qmark="?",
+            instruction="(id du client à afficher)",
+            ).ask(patch_stdout=True)
+
+            if cid is None:
+                raise SystemExit(1)
+            
+            client = client_manager.get_client_info(cid)
+            
+            if client is None:
+                print(f"Aucun client enregistré avec l'id '{cid}'.")
+                continue
+            
+            print(f"Client ID:      {client.client_id}")
+            print(f"Registered At:  {client.registered_at}")
+            print(f"Private IP:     {client.ip_private}")
             continue
+            
         elif choices == "Afficher les informations réseau":
             url = questionary.text(
                 "url :",
@@ -42,6 +70,29 @@ def start_cli():
             else:
                 print(network_status)
             continue
+        
+        elif choices == "Lister les clients":
+            if not client_manager.clients:
+                print("Aucun client enregistré.")
+            else:
+                for cid, info in client_manager.clients.items():
+                    print(f"  {cid}  ip={info.ip_private}  enregistré={info.registered_at}")
+            continue
+        
+        elif choices == "Envoyer une commande":
+            cmd = questionary.select(
+            "Select an option:",
+            choices=["whoami", "Quitter"]
+            ).ask()
+            if cmd == "Quitter":
+                print("Exiting...")
+                break
+            if cmd == "whoami":
+                res_cmd = make_command('', 'whoami')
+                enqueue_command(res_cmd, client_manager)
+                print("Command sent to queue")
+            continue
+                
         elif choices == "Quitter":
             print("Exiting the program.")
             break

@@ -19,6 +19,10 @@ std::wstring current_exe_path() {
 }
 
 // Configure les recovery actions : redémarrage après 5 s, 3 fois, reset 1 jour.
+// Après 3 crashs consécutifs le SCM abandonne (SC_ACTION_NONE implicite) et le service
+// reste STOPPED jusqu'au prochain reboot (SERVICE_AUTO_START le relance alors).
+// Le compteur se remet à 0 uniquement si le service tourne sans crasher pendant
+// dwResetPeriod (86400 s).
 bool apply_failure_actions(SC_HANDLE service) {
     SC_ACTION actions[3] = {};
     for (auto& a : actions) {
@@ -103,7 +107,7 @@ bool install_persistence() {
                 SERVICE_NO_CHANGE,
                 exe.c_str(),
                 nullptr, nullptr, nullptr, nullptr, nullptr,
-                ServiceNameW)) {
+                ServiceDisplayNameW)) {
             log_line(format_error(GetLastError(), "ChangeServiceConfig(binPath)"));
         }
     }

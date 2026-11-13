@@ -36,16 +36,35 @@ DWORD WINAPI service_ctrl_handler(DWORD control, DWORD, LPVOID, LPVOID) {
 }
 
 void update_status(DWORD state, DWORD exit_code = NO_ERROR) {
-    g_status.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
-    g_status.dwCurrentState = state;
+    g_status.dwServiceType   = SERVICE_WIN32_OWN_PROCESS;
+    g_status.dwCurrentState  = state;
     g_status.dwWin32ExitCode = exit_code;
-    g_status.dwWaitHint = (state == SERVICE_RUNNING) ? 0 : 10000;
     g_status.dwControlsAccepted =
-        (state == SERVICE_RUNNING) ? (SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN) : 0;
+        (state == SERVICE_RUNNING)
+            ? (SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN)
+            : 0;
+    // Retour 1 : incrémenter dwCheckPoint sur tout état PENDING
+    // pour que le SCM ne considère pas le service bloqué.
+    if (state == SERVICE_RUNNING || state == SERVICE_STOPPED) {
+        g_status.dwCheckPoint = 0;
+        g_status.dwWaitHint   = 0;
+    } else {
+        ++g_status.dwCheckPoint;
+        g_status.dwWaitHint = 10000;  // 10 s max entre deux checkpoints
+    }
     SetServiceStatus(g_status_handle, &g_status);
 }
 
 void WINAPI service_main(DWORD, LPWSTR*) {
+    // Retour 2 : initialiser g_status avant RegisterServiceCtrlHandlerExW
+    // pour qu'un INTERROGATE reçu pendant le démarrage retourne un état valide
+    // (SERVICE_WIN32_OWN_PROCESS / START_PENDING) et non dwServiceType=0 / STOPPED.
+    g_status.dwServiceType      = SERVICE_WIN32_OWN_PROCESS;
+    g_status.dwCurrentState     = SERVICE_START_PENDING;
+    g_status.dwControlsAccepted = 0;
+    g_status.dwCheckPoint       = 0;
+    g_status.dwWaitHint         = 10000;
+
     g_status_handle = RegisterServiceCtrlHandlerExW(
         ServiceNameW, service_ctrl_handler, nullptr);
     if (!g_status_handle) {
@@ -111,7 +130,7 @@ int run_as_service() {
         // 1063 = ERROR_FAILED_SERVICE_CONTROLLER_CONNECT :
         // on n'a pas été lancé par le SCM (ex: exe lancé à la main sans --install).
         if (err == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) {
-            log_line("lance sans le SCM : utiliser --install");
+            log_line("lance sans le SCM, passage en mode console / installateur");
         }
         return static_cast<int>(err);
     }

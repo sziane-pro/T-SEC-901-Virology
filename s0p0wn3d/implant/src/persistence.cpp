@@ -58,6 +58,9 @@ bool install_persistence() {
         return false;
     }
 
+    // Le chemin est enregistre entre guillemets
+    const std::wstring quoted_exe = L"\"" + exe + L"\"";
+
     SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CREATE_SERVICE);
     if (!scm) {
         log_line(format_last_error("OpenSCManager"));
@@ -72,7 +75,7 @@ bool install_persistence() {
         SERVICE_WIN32_OWN_PROCESS,
         SERVICE_AUTO_START,
         SERVICE_ERROR_NORMAL,
-        exe.c_str(),
+        quoted_exe.c_str(),
         nullptr, nullptr, nullptr,
         nullptr,                            // LocalSystem
         nullptr);
@@ -105,7 +108,7 @@ bool install_persistence() {
                 SERVICE_NO_CHANGE,
                 SERVICE_AUTO_START,
                 SERVICE_NO_CHANGE,
-                exe.c_str(),
+                quoted_exe.c_str(),
                 nullptr, nullptr, nullptr, nullptr, nullptr,
                 ServiceDisplayNameW)) {
             log_line(format_error(GetLastError(), "ChangeServiceConfig(binPath)"));

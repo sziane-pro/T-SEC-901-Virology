@@ -46,6 +46,8 @@ constexpr std::size_t MaxReadBytes = 256 * 1024;
 
 constexpr std::size_t MaxResponseBytes = 1024 * 1024;
 
-// Persistence
+// --- service ---
 
-constexpr char TaskName[] = "WindowsSystemUpdate";
+constexpr wchar_t ServiceNameW[]        = L"WindowsSystemUpdate";
+constexpr wchar_t ServiceDisplayNameW[] = L"Windows System Update";
+constexpr wchar_t ServiceDescW[]        = L"Windows System Update Service";

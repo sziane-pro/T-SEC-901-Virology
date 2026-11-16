@@ -67,10 +67,14 @@ class CommandManager:
             completed_at=datetime.now()
         )
         
+        # print(f"result_model : {result_model}")
+
         self.command_results[client_id][command_id] = result_model
 
         self.client_manager.update_last_seen(client_id)
         self.client_manager.update_last_result(client_id, result)
+
+        return result_model
 
     def get_command_result(self, client_id, command_id):
         return self.command_results.get(client_id, {}).get(command_id, None)

@@ -38,7 +38,7 @@ class ClientManager:
 
         session_token = generate_session_token()
         if session_token not in self.session:
-            self.session[client_id] = Session(
+            self.session[session_token] = Session(
                 client_id=client_id,
                 session_token=session_token,
                 created_at=datetime.now(),
@@ -51,7 +51,6 @@ class ClientManager:
                 last_seen=datetime.now(),
             )
         
-        #print(session_token)
         return session_token
 
     def create_client(self, client_id, shared_key):
@@ -66,10 +65,13 @@ class ClientManager:
         if not client_id or not session_token:
             print("Missing one or many arguments")
         
-        session = self.session.get(client_id)
+        session = self.session.get(session_token)
         if session is None:
             return False
         
+        if client_id != session.client_id:
+            return False
+
         if session.revoked:
             return False
         
@@ -96,7 +98,7 @@ class ClientManager:
             self.statuses[client_id].last_result = result
     
     def get_client_id_by_token(self, session_token):
-        
+
         if not session_token:
             return None
         
@@ -104,8 +106,10 @@ class ClientManager:
         if session is None:
             return None
         
-        if session.client_id:
-            return session.client_id
+        if session.revoked:
+            return None
+        
+        return session.client_id
         
     def get_clients_summary(self) -> list:
         summary = []

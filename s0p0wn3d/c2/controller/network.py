@@ -81,6 +81,10 @@ def result():
     if not client_id:
         return jsonify({"error": "Unauthorized"}), 401
 
+    is_valid_session = manager.verify_session(client_id=client_id, session_token=session_token)
+    if not is_valid_session:
+        return jsonify({"error": "Session token is invalid"}), 401
+
     data = request.get_json()
 
     REQUIRED_FIELDS = ("command_id", "command_response", "status")

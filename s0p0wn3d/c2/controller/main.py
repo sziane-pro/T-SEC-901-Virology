@@ -12,8 +12,9 @@ def main():
 
     server_thread = threading.Thread(
         target=lambda: app.run(
-            host="127.0.0.1", 
-            port=8080, 
+            host="0.0.0.0",
+            port=8080,
+            threaded=True,  
             #ssl_context=("config/cert.pem", "config/key.pem")
             debug=False
         )
@@ -21,7 +22,7 @@ def main():
 
     server_thread.daemon = True
     server_thread.start()
-    print("[*] Serveur C2 démarré sur http://127.0.0.1:8080")
+    print("[*] Serveur C2 démarré sur http://0.0.0.0:8080")
 
     try:
         start_cli(client_manager, commands_manager)

@@ -6,56 +6,57 @@ import uuid
 
 class CommandManager:
     def __init__(self, client_manager):
-        self.client_manager = client_manager # référence vers le ClientManager
-        self.commands = {}
-        self.command_results = {}
-        self.command_queues = {}
-    
+        self.client_manager = client_manager  # référence vers le ClientManager
+        self.commands = {}                    # command_id -> Command (fiche complète)
+        self.command_results = {}             # client_id -> {command_id: CommandResult}
+        self.command_queues = {}              # client_id -> queue.Queue[Command]
+
     def generate_command_id(self):
         return str(uuid.uuid4())
 
     def queue_command(self, client_id, command_id, command):
+        """Crée la commande et la met en file pour l'agent cible.
+
+        Une seule opération : la fiche et la file ne peuvent pas diverger.
+        """
 
         if not client_id or not command_id or not command:
             return "One or more required arguments are missing."
-        
-        if client_id not in self.command_queues:
-            self.command_queues[client_id] = queue.Queue()
-        
-        self.command_queues[client_id].put({
-            "command_id": command_id,
-            "action_type": command
-        })
 
-    def get_next_command(self, client_id):
-        
+        cmd = Command(
+            command_id=command_id,
+            client_id=client_id,
+            action_type=command,
+            created_at=datetime.now(),
+        )
+
+        self.commands[command_id] = cmd
+        self.command_queues.setdefault(client_id, queue.Queue()).put(cmd)
+        return cmd
+
+    def wait_for_command(self, client_id, timeout):
+        """Long-poll : attend une commande jusqu'à `timeout` secondes.
+
+        Retourne None si aucune commande n'arrive avant l'expiration de la tenue.
+        """
+
         if not client_id:
             return None
 
-        if client_id in self.command_queues:
-            try:
-                return self.command_queues[client_id].get_nowait()
-            except queue.Empty:
-                return None
-        return None
-
-    def create_command(self, command_id, client_id, action_type):
-        if not command_id or not client_id or not action_type:
+        channel = self.command_queues.setdefault(client_id, queue.Queue())
+        try:
+            cmd = channel.get(timeout=timeout)
+        except queue.Empty:
             return None
-        
-        if command_id not in self.commands:
-            self.commands[command_id] = Command(
-                command_id=command_id,
-                client_id=client_id,
-                action_type=action_type,
-                created_at=datetime.now(),
-            )
-    
+
+        cmd.send_at = datetime.now()  # horodatage posé au moment de la remise
+        return cmd
+
     def save_command_result(self, client_id, command_id, result, status):
 
         if not client_id or not command_id or not result or not status:
             return "One or more required arguments are missing."
-        
+
         if client_id not in self.command_results:
             self.command_results[client_id] = {}
 
@@ -66,8 +67,6 @@ class CommandManager:
             status=status,
             completed_at=datetime.now()
         )
-        
-        # print(f"result_model : {result_model}")
 
         self.command_results[client_id][command_id] = result_model
 

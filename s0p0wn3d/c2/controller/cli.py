@@ -62,10 +62,9 @@ def start_cli(manager, command_manager):
             client_id = questionary.text("ID de l'agent cible : ").ask()
             command = questionary.text("Commande à exécuter (ex: whoami) : ").ask()
             command_id = command_manager.generate_command_id()
-            command_manager.create_command(command_id, client_id, command)
             command_manager.queue_command(client_id, command_id, command)
-            print(f"[+] Commande '{command}' mise en file pour l'agent {client_id}.")
-            print("[*] Elle sera envoyée au prochain beacon.")
+            print(f"Commande '{command}' mise en file pour l'agent {client_id}.")
+            print("Elle sera envoyée au prochain beacon.")
             continue
         elif choices == "Quitter":
             print("Exiting the program.")

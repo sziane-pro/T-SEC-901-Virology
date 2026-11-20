@@ -1,4 +1,7 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
+
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 project(sopown3d_implant LANGUAGES CXX)
 
 # Le code utilise std::string::data() en lecture/ecriture : C++17 obligatoire.
@@ -14,6 +17,7 @@ add_executable(sopown3d_implant
     src/commands_file.cpp
     src/commands_system.cpp
     src/error.cpp
+    src/json.cpp
     src/persistence.cpp
     src/cleaner.cpp
     src/service.cpp

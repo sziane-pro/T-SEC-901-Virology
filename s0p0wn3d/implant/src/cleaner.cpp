@@ -2,6 +2,7 @@
 #include "config.h"
 #include "error.h"
 #include "log.h"
+#include "persistence.h"
 #include "service.h"
 #include <windows.h>
 #include <string>
@@ -61,6 +62,19 @@ std::string cmd_uninstall() {
         CloseServiceHandle(service);
     }
     CloseServiceHandle(scm);
+
+    // Suppression de la copie installee (niveau service). Si le processus courant
+    // est cette copie, DeleteFile echoue : on programme la suppression au reboot.
+    const std::wstring installed = installed_exe_path();
+    if (!installed.empty()) {
+        if (!DeleteFileW(installed.c_str())) {
+            MoveFileExW(installed.c_str(), nullptr, MOVEFILE_DELAY_UNTIL_REBOOT);
+        }
+        RemoveDirectoryW(install_dir().c_str());   // echoue si non vide : sans consequence
+    }
+
+    // Persistance utilisateur (valeur Run + copie LocalAppData), si elle existe.
+    remove_user_persistence();
 
     // Suppression du binaire au reboot (le processus courant le verrouille encore).
     char exe_path[MAX_PATH] = {};

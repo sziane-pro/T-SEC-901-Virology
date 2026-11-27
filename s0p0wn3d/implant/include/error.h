@@ -13,3 +13,6 @@ std::string format_last_error(const std::string& context);
 // Pour les appels de la CRT (fopen, ...) qui renseignent errno et non
 // GetLastError.
 std::string format_errno(const std::string& context);
+
+// Convertit une chaine UTF-16 (API Windows) en UTF-8.
+std::string to_utf8(const std::wstring& value);

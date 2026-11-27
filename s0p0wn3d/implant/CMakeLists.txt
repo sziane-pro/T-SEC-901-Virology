@@ -33,3 +33,10 @@ target_link_libraries(sopown3d_implant PRIVATE
     ws2_32
     iphlpapi
 )
+
+# Pour supprimer l'affichage du terminal au double clic
+set_target_properties(sopown3d_implant PROPERTIES
+    WIN32_EXECUTABLE $<CONFIG:Release>)
+
+target_link_options(sopown3d_implant PRIVATE
+    $<$<CONFIG:Release>:/ENTRY:mainCRTStartup>)
